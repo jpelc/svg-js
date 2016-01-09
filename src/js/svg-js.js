@@ -97,7 +97,13 @@ function exportGraph() {
 }
 
 function loadGraph() {
+    var graph = prompt("Please enter content of svg file");
     
+    if (graph != null) {
+        $('.graph')[0].outerHTML = graph;
+        initialize();
+        registerDragAndDrop();
+    }
 }
 //--------------usage layer--------------
 
