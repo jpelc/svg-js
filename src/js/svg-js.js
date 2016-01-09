@@ -5,6 +5,8 @@ $(function() {
 
 //--------------usage layer--------------
 function initialize() {
+
+    //context menu for editor
     $.contextMenu({
         selector: '.graph',
         items: {
@@ -22,12 +24,22 @@ function initialize() {
                 }
             },
             "sep2": "---------",
-            "loadGraph": {name: "Import graph"},
-            "exportGraph": {name: "Export vertex"},
+            "loadGraph": {
+                name: "Import graph",
+                callback: function() {
+                    loadGraph();
+                }
+            },
+            "exportGraph": {name: "Export vertex",
+                callback: function() {
+                    exportGraph();
+                }
+            }
         },
         reposition: false
     });
 
+    //context menu for vertex
     $('.graph').contextMenu({
         selector: 'circle',
         items: {
@@ -61,6 +73,7 @@ function initialize() {
         reposition: false
     }); 
 
+    //context menu for edge
     $('.graph').contextMenu({
         selector: 'line',
         items: {
@@ -72,7 +85,7 @@ function initialize() {
             }
         },
         reposition: false
-    }); 
+    });
 }
 
 function reset(editor) {
@@ -80,7 +93,7 @@ function reset(editor) {
 }
 
 function exportGraph() {
-    
+    window.open().document.body.innerText = $('.graph')[0].outerHTML;
 }
 
 function loadGraph() {
@@ -111,6 +124,8 @@ function addVertex(editor,x,y) {
     var realY = y - editor.offset().top;
     var vertex = createVertex(realX, realY);
     editor.append(vertex);
+
+    registerDragAndDrop();
 }
 
 function addNeighbor(vertex) {
@@ -135,13 +150,13 @@ function addNeighbor(vertex) {
         neighborY = +vertexY - random;
     }
 
-
-
     var neighbor = createVertex(neighborX, neighborY);
     editor.append(neighbor);
 
     var edge = createEdge(vertexX, vertexY, neighborX, neighborY);
     editor.prepend(edge);
+
+    registerDragAndDrop();
 }
 
 function editVertex() {
@@ -181,8 +196,33 @@ function deleteAllEdgesFromVertex(vertex) {
     }
 }
 
-function moveVertex() {
+function registerDragAndDrop() {
+    //drag$drop
+    $('circle')
+        .draggable()
+        .bind('drag', function(event, ui){
+            var oldX = event.target.getAttribute('cx');
+            var oldY = event.target.getAttribute('cy');
 
+            var newX = ui.position.left - $(event.target).parent().offset().left;
+            var newY = ui.position.top - $(event.target).parent().offset().top;
+
+            event.target.setAttribute('cx', newX);
+            event.target.setAttribute('cy', newY);
+
+            var edges = $(event.target).siblings('line');
+            if (edges.length > 0) {
+                for (var i = edges.length - 1; i >= 0; i--) {
+                    if (edges[i].getAttribute('x1') === oldX && edges[i].getAttribute('y1') === oldY) {
+                        edges[i].setAttribute('x1', newX);
+                        edges[i].setAttribute('y1', newY);
+                    } else if (edges[i].getAttribute('x2') === oldX && edges[i].getAttribute('y2') === oldY) {
+                        edges[i].setAttribute('x2', newX);
+                        edges[i].setAttribute('y2', newY);
+                    }
+                }
+            }
+        });
 }
 //---------------dev layer---------------
 
