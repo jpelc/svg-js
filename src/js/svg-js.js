@@ -5,7 +5,25 @@ $(function() {
 
 //--------------usage layer--------------
 function initialize() {
+    setupEnvironment();
+}
 
+function reset(editor) {
+    cleanUpWorkspace(editor);
+}
+
+function exportGraph() {
+    saveWorkspaceTo();
+}
+
+function loadGraph() {
+    loadWorkspaceFrom();
+}
+//--------------usage layer--------------
+
+
+//---------------dev layer---------------
+function setupEnvironment() {
     //context menu for editor
     $.contextMenu({
         selector: '.graph',
@@ -30,7 +48,7 @@ function initialize() {
                     loadGraph();
                 }
             },
-            "exportGraph": {name: "Export vertex",
+            "exportGraph": {name: "Export graph",
                 callback: function() {
                     exportGraph();
                 }
@@ -50,6 +68,12 @@ function initialize() {
                 }
             },
             "sep1": "---------",
+            "editVertexStyle": {
+                name: "Edit style",
+                callback: function() {
+                    editVertexStyle($(this));
+                }
+            },
             "deleteVertex": {
                 name: "Delete vertex",
                 callback: function() {
@@ -60,7 +84,7 @@ function initialize() {
             "addEdge": {
                 name: "Add edge from this vertex",
                 callback: function() {
-                    
+                    addEdge($(this), event.pageX, event.pageY);
                 }
             },
             "deleteEdges": {
@@ -82,35 +106,16 @@ function initialize() {
                 callback: function() {
                     deleteEdge($(this));
                 }
+            },
+            "editEdgeStyle": {
+                name: "Edit style",
+                callback: function() {
+                    editEdgeStyle($(this));
+                }
             }
         },
         reposition: false
     });
-}
-
-function reset(editor) {
-    cleanUpWorkspace(editor);
-}
-
-function exportGraph() {
-    window.open().document.body.innerText = $('.graph')[0].outerHTML;
-}
-
-function loadGraph() {
-    var graph = prompt("Please enter content of svg file");
-    
-    if (graph != null) {
-        $('.graph')[0].outerHTML = graph;
-        initialize();
-        registerDragAndDrop();
-    }
-}
-//--------------usage layer--------------
-
-
-//---------------dev layer---------------
-function setupEnvironment() {
-
 }
 
 function cleanUpWorkspace(editor) {
@@ -118,11 +123,17 @@ function cleanUpWorkspace(editor) {
 }
 
 function saveWorkspaceTo() {
-
+    window.open().document.body.innerText = $('.graph')[0].outerHTML;
 }
 
 function loadWorkspaceFrom() {
-
+    var graph = prompt("Please enter content of svg file");
+    
+    if (graph != null) {
+        $('.graph')[0].outerHTML = graph;
+        initialize();
+        registerDragAndDrop();
+    }
 }
 
 function addVertex(editor,x,y) {
@@ -159,7 +170,7 @@ function addNeighbor(vertex) {
     var neighbor = createVertex(neighborX, neighborY);
     editor.append(neighbor);
 
-    var edge = createEdge(vertexX, vertexY, neighborX, neighborY);
+    var edge = createEdge(vertexX, vertexY, neighbor.getAttribute('cx'), neighbor.getAttribute('cy'));
     editor.prepend(edge);
 
     registerDragAndDrop();
@@ -167,6 +178,14 @@ function addNeighbor(vertex) {
 
 function editVertex() {
 
+}
+
+function editVertexStyle(vertex) {
+    var style = prompt("Edit style for selected vertex", $(vertex).attr('style'));
+    
+    if (style != null) {
+        $(vertex).attr('style', style);
+    }
 }
 
 function deleteVertex(vertex) {
@@ -178,12 +197,43 @@ function showVertexInfo() {
 
 }
 
-function addEdge() {
+function addEdge(vertex, mouseX, mouseY) {
+    var vertexX = vertex.attr('cx');
+    var vertexY = vertex.attr('cy');
 
+    var editor = vertex.parent();
+
+    var realX = mouseX - editor.offset().left;
+    var realY = mouseY - editor.offset().top;
+
+    var edge = createEdge(vertexX, vertexY, realX, realY);
+
+    $(editor).mousemove(function(event) {
+        edge.setAttribute('x2', event.pageX - editor.offset().left);
+        edge.setAttribute('y2', event.pageY - editor.offset().top);
+    });
+
+    $('circle').click(function(event) {
+        edge.setAttribute('x2', event.target.getAttribute('cx'));
+        edge.setAttribute('y2', event.target.getAttribute('cy'));
+
+        $(editor).unbind('mousemove');
+        $('circle').unbind('click');
+    });
+
+    editor.prepend(edge);
 }
 
 function editEdge() {
 
+}
+
+function editEdgeStyle(edge) {
+    var style = prompt("Edit style for selected edge", $(edge).attr('style'));
+    
+    if (style != null) {
+        $(edge).attr('style', style);
+    }
 }
 
 function deleteEdge(edge) {
@@ -210,8 +260,8 @@ function registerDragAndDrop() {
             var oldX = event.target.getAttribute('cx');
             var oldY = event.target.getAttribute('cy');
 
-            var newX = ui.position.left - $(event.target).parent().offset().left;
-            var newY = ui.position.top - $(event.target).parent().offset().top;
+            var newX = alignToGrid(ui.position.left - $(event.target).parent().offset().left);
+            var newY = alignToGrid(ui.position.top - $(event.target).parent().offset().top);
 
             event.target.setAttribute('cx', newX);
             event.target.setAttribute('cy', newY);
@@ -236,8 +286,8 @@ function registerDragAndDrop() {
 //---------------low layer---------------
 function createVertex(x,y) {
     var vertex = document.createElementNS("http://www.w3.org/2000/svg", "circle");
-    vertex.setAttribute("cx", x);
-    vertex.setAttribute("cy", y);
+    vertex.setAttribute("cx", alignToGrid(x));
+    vertex.setAttribute("cy", alignToGrid(y));
     vertex.setAttribute("r", 20);
     vertex.setAttribute("stroke", "#2980b9");
     vertex.setAttribute("stroke-width", "2");
@@ -256,14 +306,18 @@ function createEdge(x1,y1,x2,y2) {
     return edge;
 }
 
-function alignToGrid() {
+function alignToGrid(value) {
+    var val = Math.floor(value);
 
+    if (val % 25 !== 0) {
+        var rest = val % 25;
+        if (rest < 13) {
+            val -= rest;
+        } else {
+            val += (25 - rest);
+        }
+    }
+
+    return val;
 }
 //---------------low layer---------------
-
-
-//------------------------------------------------------------------------------------------
-
-    // $('.graph').on('click', function(e){
-    //     console.log('clicked', this);
-    // })  
