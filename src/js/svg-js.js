@@ -102,16 +102,16 @@ function setupEnvironment() {
     $('.graph').contextMenu({
         selector: 'line',
         items: {
-            "deleteEdge": {
-                name: "Delete edge",
-                callback: function() {
-                    deleteEdge($(this));
-                }
-            },
             "editEdgeStyle": {
                 name: "Edit style",
                 callback: function() {
                     editEdgeStyle($(this));
+                }
+            },
+            "deleteEdge": {
+                name: "Delete edge",
+                callback: function() {
+                    deleteEdge($(this));
                 }
             }
         },
