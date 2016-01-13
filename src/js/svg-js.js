@@ -114,10 +114,22 @@ function setupEnvironment() {
     $('.graph').contextMenu({
         selector: 'line',
         items: {
+            "editEdgeText": {
+                name: "Edit edge label",
+                callback: function() {
+                    editEdgeText($(this));
+                }
+            },
             "editEdgeStyle": {
                 name: "Edit style",
                 callback: function() {
                     editEdgeStyle($(this));
+                }
+            },
+            "editTextStyle": {
+                name: "Edit text style",
+                callback: function() {
+                    editEdgeTextStyle($(this));
                 }
             },
             "deleteEdge": {
@@ -183,9 +195,9 @@ function addNeighbor(vertex) {
     var neighborGroup = createVertex(neighborX, neighborY);
     editor.append(neighborGroup);
 
-    var edge = createEdge(vertexX, vertexY, neighborGroup.getElementsByTagName('circle')[0].getAttribute('cx'), 
+    var edgeGroup = createEdge(vertexX, vertexY, neighborGroup.getElementsByTagName('circle')[0].getAttribute('cx'), 
         neighborGroup.getElementsByTagName('circle')[0].getAttribute('cy'));
-    editor.prepend(edge);
+    editor.prepend(edgeGroup);
 
     registerDragAndDrop();
 }
@@ -219,10 +231,6 @@ function deleteVertex(vertex) {
     $(vertex).parent().remove();
 }
 
-function showVertexInfo() {
-
-}
-
 function addEdge(vertex, mouseX, mouseY) {
     var vertexX = vertex.attr('cx');
     var vertexY = vertex.attr('cy');
@@ -232,26 +240,45 @@ function addEdge(vertex, mouseX, mouseY) {
     var realX = mouseX - editor.offset().left;
     var realY = mouseY - editor.offset().top;
 
-    var edge = createEdge(vertexX, vertexY, realX, realY);
+    var edgeGroup = createEdge(vertexX, vertexY, realX, realY);
 
     $(editor).mousemove(function(event) {
-        edge.setAttribute('x2', event.pageX - editor.offset().left);
-        edge.setAttribute('y2', event.pageY - editor.offset().top);
+        var edgeX = event.pageX - editor.offset().left;
+        var edgeY = event.pageY - editor.offset().top;
+
+        var edge = edgeGroup.childNodes[0];
+        var text = edgeGroup.childNodes[1];
+
+        edge.setAttribute('x2', edgeX);
+        edge.setAttribute('y2', edgeY);
+
+        text.setAttribute("x", Math.floor((parseInt(edge.getAttribute('x1'))+parseInt(edge.getAttribute('x2')))/2));
+        text.setAttribute("y", Math.floor((parseInt(edge.getAttribute('y1'))+parseInt(edge.getAttribute('y2')))/2));
     });
 
     $('circle').click(function(event) {
+        var edge = edgeGroup.childNodes[0];
+        var text = edgeGroup.childNodes[1];
+
         edge.setAttribute('x2', event.target.getAttribute('cx'));
         edge.setAttribute('y2', event.target.getAttribute('cy'));
+
+        text.setAttribute("x", Math.floor((parseInt(edge.getAttribute('x1'))+parseInt(edge.getAttribute('x2')))/2));
+        text.setAttribute("y", Math.floor((parseInt(edge.getAttribute('y1'))+parseInt(edge.getAttribute('y2')))/2));
 
         $(editor).unbind('mousemove');
         $('circle').unbind('click');
     });
 
-    editor.prepend(edge);
+    editor.prepend(edgeGroup);
 }
 
-function editEdge() {
-
+function editEdgeText(edge) {
+    var text = prompt("Edit edge label", $(edge).siblings('text')[0].innerHTML);
+    
+    if (text != null) {
+        $(edge).siblings('text')[0].innerHTML = text;
+    }
 }
 
 function editEdgeStyle(edge) {
@@ -262,17 +289,25 @@ function editEdgeStyle(edge) {
     }
 }
 
+function editEdgeTextStyle(edge) {
+    var style = prompt("Edit style for selected edge text", $(edge).siblings('text')[0].getAttribute('style'));
+    
+    if (style != null) {
+        $(edge).siblings('text')[0].setAttribute('style', style);
+    }
+}
+
 function deleteEdge(edge) {
-    edge.remove();
+    $(edge).parent().remove();
 }
 
 function deleteAllEdgesFromVertex(vertex) {
-    var edges = $(vertex).parent().siblings('line');
+    var edges = $(vertex).parent().parent().find('line');
     if (edges.length > 0) {
         for (var i = edges.length - 1; i >= 0; i--) {
             if ((edges[i].getAttribute('x1') === vertex.attr('cx') && edges[i].getAttribute('y1') === vertex.attr('cy')) 
                 || (edges[i].getAttribute('x2') === vertex.attr('cx') && edges[i].getAttribute('y2') === vertex.attr('cy'))) {
-                edges[i].remove();
+                $(edges[i]).parent().remove();
             }
         }
     }
@@ -295,7 +330,7 @@ function registerDragAndDrop() {
             event.target.nextSibling.setAttribute('x', newX-8);
             event.target.nextSibling.setAttribute('y', newY+40);
 
-            var edges = $(event.target).parent().siblings('line');
+            var edges = $(event.target).parent().parent().find('line');
             if (edges.length > 0) {
                 for (var i = edges.length - 1; i >= 0; i--) {
                     if (edges[i].getAttribute('x1') === oldX && edges[i].getAttribute('y1') === oldY) {
@@ -305,6 +340,10 @@ function registerDragAndDrop() {
                         edges[i].setAttribute('x2', newX);
                         edges[i].setAttribute('y2', newY);
                     }
+
+                    var text = edges[i].nextSibling;
+                    text.setAttribute("x", Math.floor((parseInt(edges[i].getAttribute('x1'))+parseInt(edges[i].getAttribute('x2')))/2));
+                    text.setAttribute("y", Math.floor((parseInt(edges[i].getAttribute('y1'))+parseInt(edges[i].getAttribute('y2')))/2));
                 }
             }
         });
@@ -347,7 +386,17 @@ function createEdge(x1,y1,x2,y2) {
     edge.setAttribute("y2", y2);
     edge.setAttribute("stroke", "#e74c3c");
     edge.setAttribute("stroke-width", "4");
-    return edge;
+
+    var text = document.createElementNS("http://www.w3.org/2000/svg", "text");
+    text.setAttribute("x", Math.floor((parseInt(x1)+parseInt(x2))/2));
+    text.setAttribute("y", Math.floor((parseInt(y1)+parseInt(y2))/2));
+    text.setAttribute("style", "fill:black");
+    text.innerHTML ='E';
+    
+    var group = document.createElementNS("http://www.w3.org/2000/svg", "g");
+    group.appendChild(edge);
+    group.appendChild(text);
+    return group;
 }
 
 function alignToGrid(value) {
