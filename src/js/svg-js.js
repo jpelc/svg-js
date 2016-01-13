@@ -12,12 +12,12 @@ function reset(editor) {
     cleanUpWorkspace(editor);
 }
 
-function exportGraph() {
-    saveWorkspaceTo();
+function exportGraph(editor) {
+    saveWorkspaceTo(editor);
 }
 
-function loadGraph() {
-    loadWorkspaceFrom();
+function loadGraph(editor) {
+    loadWorkspaceFrom(editor);
 }
 //--------------usage layer--------------
 
@@ -46,12 +46,12 @@ function setupEnvironment() {
             "loadGraph": {
                 name: "Import graph",
                 callback: function() {
-                    loadGraph();
+                    loadGraph($(this));
                 }
             },
             "exportGraph": {name: "Export graph",
                 callback: function() {
-                    exportGraph();
+                    exportGraph($(this));
                 }
             }
         },
@@ -69,10 +69,22 @@ function setupEnvironment() {
                 }
             },
             "sep1": "---------",
+            "editVertexText": {
+                name: "Edit vertex label",
+                callback: function() {
+                    editVertexText($(this));
+                }
+            },
             "editVertexStyle": {
-                name: "Edit style",
+                name: "Edit vertex style",
                 callback: function() {
                     editVertexStyle($(this));
+                }
+            },
+            "editTextStyle": {
+                name: "Edit text style",
+                callback: function() {
+                    editVertexTextStyle($(this));
                 }
             },
             "deleteVertex": {
@@ -123,15 +135,15 @@ function cleanUpWorkspace(editor) {
     editor.empty();
 }
 
-function saveWorkspaceTo() {
-    window.open().document.body.innerText = $('.graph')[0].outerHTML;
+function saveWorkspaceTo(editor) {
+    window.open().document.body.innerText = editor[0].outerHTML;
 }
 
-function loadWorkspaceFrom() {
+function loadWorkspaceFrom(editor) {
     var graph = prompt("Please enter content of svg file");
     
     if (graph != null) {
-        $('.graph')[0].outerHTML = graph;
+        editor[0].outerHTML = graph;
         initialize();
         registerDragAndDrop();
     }
@@ -140,14 +152,14 @@ function loadWorkspaceFrom() {
 function addVertex(editor,x,y) {
     var realX = x - editor.offset().left;
     var realY = y - editor.offset().top;
-    var vertex = createVertex(realX, realY);
-    editor.append(vertex);
+    var vertexGroup = createVertex(realX, realY);
+    editor.append(vertexGroup);
 
     registerDragAndDrop();
 }
 
 function addNeighbor(vertex) {
-    var editor = vertex.parent();
+    var editor = vertex.parent().parent();
     var vertexX = vertex.attr('cx');
     var vertexY = vertex.attr('cy');
 
@@ -168,17 +180,22 @@ function addNeighbor(vertex) {
         neighborY = +vertexY - random;
     }
 
-    var neighbor = createVertex(neighborX, neighborY);
-    editor.append(neighbor);
+    var neighborGroup = createVertex(neighborX, neighborY);
+    editor.append(neighborGroup);
 
-    var edge = createEdge(vertexX, vertexY, neighbor.getAttribute('cx'), neighbor.getAttribute('cy'));
+    var edge = createEdge(vertexX, vertexY, neighborGroup.getElementsByTagName('circle')[0].getAttribute('cx'), 
+        neighborGroup.getElementsByTagName('circle')[0].getAttribute('cy'));
     editor.prepend(edge);
 
     registerDragAndDrop();
 }
 
-function editVertex() {
-
+function editVertexText(vertex) {
+    var text = prompt("Edit vertex label", $(vertex).siblings('text')[0].innerHTML);
+    
+    if (text != null) {
+        $(vertex).siblings('text')[0].innerHTML = text;
+    }
 }
 
 function editVertexStyle(vertex) {
@@ -189,9 +206,17 @@ function editVertexStyle(vertex) {
     }
 }
 
+function editVertexTextStyle(vertex) {
+    var style = prompt("Edit style for selected vertex text", $(vertex).siblings('text')[0].getAttribute('style'));
+    
+    if (style != null) {
+        $(vertex).siblings('text')[0].setAttribute('style', style);
+    }
+}
+
 function deleteVertex(vertex) {
     deleteAllEdgesFromVertex(vertex);
-    vertex.remove();
+    $(vertex).parent().remove();
 }
 
 function showVertexInfo() {
@@ -202,7 +227,7 @@ function addEdge(vertex, mouseX, mouseY) {
     var vertexX = vertex.attr('cx');
     var vertexY = vertex.attr('cy');
 
-    var editor = vertex.parent();
+    var editor = vertex.parent().parent();
 
     var realX = mouseX - editor.offset().left;
     var realY = mouseY - editor.offset().top;
@@ -242,7 +267,7 @@ function deleteEdge(edge) {
 }
 
 function deleteAllEdgesFromVertex(vertex) {
-    var edges = vertex.siblings('line');
+    var edges = $(vertex).parent().siblings('line');
     if (edges.length > 0) {
         for (var i = edges.length - 1; i >= 0; i--) {
             if ((edges[i].getAttribute('x1') === vertex.attr('cx') && edges[i].getAttribute('y1') === vertex.attr('cy')) 
@@ -261,13 +286,16 @@ function registerDragAndDrop() {
             var oldX = event.target.getAttribute('cx');
             var oldY = event.target.getAttribute('cy');
 
-            var newX = alignToGrid(ui.position.left - $(event.target).parent().offset().left);
-            var newY = alignToGrid(ui.position.top - $(event.target).parent().offset().top);
+            var newX = alignToGrid(ui.position.left - $(event.target).parent().parent().offset().left);
+            var newY = alignToGrid(ui.position.top - $(event.target).parent().parent().offset().top);
 
             event.target.setAttribute('cx', newX);
             event.target.setAttribute('cy', newY);
 
-            var edges = $(event.target).siblings('line');
+            event.target.nextSibling.setAttribute('x', newX-8);
+            event.target.nextSibling.setAttribute('y', newY+40);
+
+            var edges = $(event.target).parent().siblings('line');
             if (edges.length > 0) {
                 for (var i = edges.length - 1; i >= 0; i--) {
                     if (edges[i].getAttribute('x1') === oldX && edges[i].getAttribute('y1') === oldY) {
@@ -288,13 +316,27 @@ function registerDragAndDrop() {
 //---------------low layer---------------
 function createVertex(x,y) {
     var vertex = document.createElementNS("http://www.w3.org/2000/svg", "circle");
-    vertex.setAttribute("cx", alignToGrid(x));
-    vertex.setAttribute("cy", alignToGrid(y));
+
+    var alignedX = alignToGrid(x);
+    var alignedY = alignToGrid(y);
+
+    vertex.setAttribute("cx", alignedX);
+    vertex.setAttribute("cy", alignedY);
     vertex.setAttribute("r", 20);
     vertex.setAttribute("stroke", "#2980b9");
     vertex.setAttribute("stroke-width", "2");
     vertex.setAttribute("fill", "#3498db");
-    return vertex;
+
+    var text = document.createElementNS("http://www.w3.org/2000/svg", "text");
+    text.setAttribute("x", alignedX-8);
+    text.setAttribute("y", alignedY+40);
+    text.setAttribute("style", "fill:black");
+    text.innerHTML ='V';
+
+    var group = document.createElementNS("http://www.w3.org/2000/svg", "g");
+    group.appendChild(vertex);
+    group.appendChild(text);
+    return group;
 }
 
 function createEdge(x1,y1,x2,y2) {
